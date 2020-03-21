@@ -1,0 +1,25 @@
+DIR=$1
+
+echo "working directory content";ls -t $DIR; echo ""
+#echo "current content of the output directory will be erased (press any key to continue or ctrl+C to interrupt execution)"; read -n 1 -s
+if [ ! -d "$DIR" ]; then
+	mkdir $DIR
+fi
+if [ ! -d "$DIR/Estimation" ]; then
+	mkdir $DIR/Estimation
+fi
+if [ ! -d "$DIR/Estimation/AggregateGap" ]; then
+	mkdir $DIR/Estimation/AggregateGap
+fi
+if [ ! -d "$DIR/Estimation/CareerGap" ]; then
+	mkdir $DIR/Estimation/CareerGap
+fi
+#rm -R $DIR/Simulations
+#mkdir $DIR/Simulations
+#mkdir $DIR/Simulations/AggregateGap
+#mkdir $DIR/Simulations/CareerGap
+
+if [ ! -d "$DIR/Source" ]; then
+	mkdir $DIR/Source 
+fi
+

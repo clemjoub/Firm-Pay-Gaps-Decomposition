@@ -1,0 +1,16 @@
+
+DIR=$1
+
+echo "Source Directory?";read  -n10 SOURCEDIR;echo "$SOURCEDIR"
+echo "source directory content";ls -t $SOURCEDIR;echo ""
+echo "$SOURCEDIR" > ./sourcedir
+
+cp -t $DIR/Source $SOURCEDIR/Source/*
+cp -R $SOURCEDIR/Estimation/AggregateGap $DIR/Estimation/
+cp -R $SOURCEDIR/Estimation/CareerGap $DIR/Estimation/
+
+cd $DIR
+
+
+
+

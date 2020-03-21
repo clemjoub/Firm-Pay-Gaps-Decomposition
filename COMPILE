@@ -1,0 +1,145 @@
+#!/bin/bash
+#reset
+
+now="$(date)"
+
+###################READ USER INPUT#################################
+echo "Press:"
+echo "(0) Debug"
+echo "(1) Simulate Aggregate Gap"
+echo "(2) Simulate Career Gap"
+echo "(3) Bootstrap decomposition"
+read  -n2 NUM
+#NUM=1
+echo ""
+
+case $NUM in
+
+##################BOOTSTRAP MODEL#######################################
+3)
+
+rm a.out
+rm out.$DIR
+
+echo "Working Directory?"; read  -n10 DIR;echo "$DIR"
+
+echo "save the baseline parameter estimates"
+	cp $DIR/Estimation/AggregateGap/simstats.txt $DIR/Estimation/AggregateGap/simstats_baseline.txt
+	cp $DIR/Estimation/CareerGap/simstats.txt $DIR/Estimation/CareerGap/simstats_baseline.txt
+
+echo "Create, and cd to, working directory"
+	./routines/mkworkdir $DIR
+	./routines/makeprog $DIR
+	cd $DIR
+
+echo "Number of bootstrap reps?"; read -n3 BOOTNB; 
+
+echo "Do Aggregate gap, then career gap"
+for tenure in 0   
+do
+	echo "set parameter for Aggregate or Career gap (tenure=0 or 1,resp)"
+		sed -i "s@tenure      = .@tenure      = ${tenure}@" ./Source/prog.f90
+		sed -i "s@year1       = ....@year1       = 1987@" ./Source/prog.f90
+		sed -i "s@yearT       = ....@yearT       = 2015@" ./Source/prog.f90
+		#sed -i "s@lastyeardata= ....@lastyeardata= 2015@" ./Source/prog.f90
+
+	echo "set parameter for exit model (regdum=1 means linear prob)"
+		sed -i "s@regdum      = .@regdum      = 1@" ./Source/prog.f90
+		
+		FOLDER=AggregateGap/WageInRaise/
+		if [ "$tenure" -eq 1 ]
+		then
+			FOLDER=CareerGap
+			sed -i "s@year1       = ....@year1       = 1@" ./Source/prog.f90
+			sed -i "s@yearT       = ....@yearT       = 15@" ./Source/prog.f90
+			#sed -i "s@lastyeardata= ....@lastyeardata= 15@" ./Source/prog.f90
+
+		fi
+
+	echo "Compile program, skip counterfactuals"
+		sed -i "s@.cycle !skip counterfactuals@!cycle !skip counterfactuals@" ./Source/prog.f90
+		sed -i "s@.cycle !do only preferred@ cycle !do only preferred@" ./Source/prog.f90
+		mpif90 -r8 -heap-arrays -O2 -implicitnone -lmpi ./Source/prog.f90 -o b.out
+
+
+		echo "simulations folder: $FOLDER"
+	echo "Loop over bootstrap"
+
+	for ((i=1;i<=$BOOTNB;i++))
+	do
+		echo "Bootstrap nb $i"
+		echo "Copy bootstrapped input estimates into simstats.txt file"
+
+		cp ./Estimation/$FOLDER/simstats$i.txt ./Estimation/$FOLDER/simstats.txt
+
+		echo "Start: Current date and time %s\n" "$now" >> ../out.$DIR
+
+		mpiexec -n 1 ./b.out infile.asc outfile.asc 1 
+		wait
+	
+		#for j in 00000 00100 00110 01110 11110 11111  
+		#do  
+		#	mv ./Simulations/$FOLDER/simulationfit1$j.txt ./Simulations/$FOLDER/simulationfit1${j}_bt$i.txt
+		#	mv ./Simulations/$FOLDER/simulationfit2$j.txt ./Simulations/$FOLDER/simulationfit2${j}_bt$i.txt
+		#done 	
+
+	done
+
+	echo "Restore baseline parameter estimates"
+	cp $DIR/Estimation/$FOLDER/simstats_baseline.txt $DIR/Estimation/$FOLDER/simstats.txt
+done
+;;
+
+
+###################RUN MODEL#######################################
+1)
+echo "Working Directory?"; read  -n10 DIR;echo "$DIR"
+
+rm a.out
+rm out.$DIR
+
+./routines/mkworkdir $DIR
+./routines/makeprog $DIR
+
+cd $DIR
+
+mpif90 -r8 -heap-arrays -O2 -implicitnone -lmpi ./Source/prog.f90 -o b.out
+
+echo "Start: Current date and time %s\n" "$now" >> ../out.$DIR
+
+mpiexec -n 1 ./b.out infile.asc outfile.asc 1 > ../out.$DIR &
+
+../routines/outputjobinfo $DIR
+
+tail -f ../out.$DIR
+;;
+
+###################DEBUG MODEL#######################################
+0)
+DIR=Debug
+
+rm a.out
+rm out.$DIR
+
+echo "removing old outputs"; rm $DIR/Simulations/AggregateGap/* ; rm $DIR/Simulations/CareerGap/*
+
+./routines/mkworkdir $DIR
+./routines/getsourcedir $DIR 	#import files from another folder 
+./routines/makeprog $DIR
+
+
+cd $DIR
+#sed -i "s@nbins       = ...@nbins       = 50@" 	./Source/prog.f90  
+#sed -i "s@binsize     = .\..@binsize     = 10.0@" 	./Source/prog.f90  
+		sed -i "s@regdum      = .@regdum      = 0@" ./Source/prog.f90
+mpif90 -O0 -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fpe-all=3 -fp-model strict -r8 -heap-arrays -g -implicitnone -lmpi ./Source/prog.f90 -o d.out
+
+gdb d.out
+;;
+
+
+###################EXIT#############################################
+*) echo "Exiting" 
+;;
+
+esac

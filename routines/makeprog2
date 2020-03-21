@@ -1,0 +1,9 @@
+DIR=$1
+
+cd $DIR
+
+rm ./Source/prog.f90
+
+dos2unix ./Source/*
+cat ./Source/main4.f90 <(echo) ./Source/import_salary3.f90 <(echo) ./Source/entryexit2.f90 <(echo) ./Source/salgrowth.f90 <(echo) ./Source/fit.f90 <(echo) ./Source/ran1.f90 <(echo) ./Source/utilities.f90 <(echo) > ./Source/prog.f90
+
